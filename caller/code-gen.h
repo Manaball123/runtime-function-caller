@@ -94,6 +94,12 @@ class CodeGenerator {
 		//push rax
 		WriteByte(0x50);
 	}
+	inline void WritePushRSP() {
+		WriteByte(0x54);
+	}
+	inline void WritePopRSP() {
+		WriteByte(0x5c);
+	}
 	//not too sure if its signed/unsigned actually but probably wont ever be a problem
 	//0:  48 81 ec ff 00 00 00    sub    rsp,0xff 
 	inline void WriteSubRsp(int val) {
