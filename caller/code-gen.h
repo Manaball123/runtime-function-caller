@@ -52,36 +52,6 @@ QWORD SampleFunc();
 using code_t = decltype(SampleFunc);
 using pCode_t = decltype(&SampleFunc);
 
-inline void WriteToBlock(UCHAR* block, size_t& offset, UCHAR val) {
-
-	*(block + offset) = val;
-	offset++;
-}
-
-inline void WriteToBlock(UCHAR* block, size_t& offset, UCHAR* val, size_t length = 1, bool reverse_endianness = false) {
-	for (size_t i = 0; i < length; i++) {
-		*(block + offset + i) = *(val + i);
-	}
-	offset += length;
-}
-inline void WriteMovabsRAX(UCHAR* block, size_t& offset, QWORD val) {
-	short movabs_rax = 0xb848;
-	WriteToBlock(block, offset, (UCHAR*)&movabs_rax, 2);
-	WriteToBlock(block, offset, (UCHAR*)&val, 8);
-}
-
-inline short ArgIdxToRegister(int idx) {
-	switch (idx) {
-	case 0:
-		return 0xb948;
-	case 1:
-		return 0xba48;
-	case 2:
-		return 0xb849;
-	case 3:
-		return 0xb949;
-	}
-}
 
 enum ArgType {
 	DWORD_t,
@@ -92,11 +62,47 @@ enum ArgType {
 
 class CodeGenerator {
 	UCHAR* code_block;
-
+	size_t cur_offset = 0;
 	inline void Init(void* address, std::vector<QWORD> args, std::vector<ArgType> arg_types) {
 		GenCode((QWORD)address, args);
 	}
 	void GenCode(QWORD address, std::vector<QWORD> args);
+
+	inline void WriteByte(UCHAR val) {
+		*(code_block + cur_offset) = val;
+		cur_offset++;
+	}
+	template <typename T>
+	inline void WriteVal(T val) {
+		*reinterpret_cast<T*>(code_block + cur_offset) = val;
+		cur_offset += sizeof(val);
+	}
+
+	inline void WriteDataBlock(UCHAR* val, size_t length = 1) {
+		for (size_t i = 0; i < length; i++) {
+			*(code_block + cur_offset + i) = *(val + i);
+		}
+		cur_offset += length;
+	}
+	inline void WriteMovabsRAX(QWORD val) {
+		short movabs_rax = 0xb848;
+		WriteVal(movabs_rax);
+		WriteVal(val);
+	}
+
+	inline short ArgIdxToRegister(int idx) {
+		switch (idx) {
+		case 0:
+			return 0xb948;
+		case 1:
+			return 0xba48;
+		case 2:
+			return 0xb849;
+		case 3:
+			return 0xb949;
+		}
+	}
+
 
 public:
 	pCode_t GetCodePtr() {

@@ -17,17 +17,17 @@ void CodeGenerator::GenCode(QWORD address, std::vector<QWORD> args) {
 		if (arg_idx >= 4)
 			break;
 		idx_ins = ArgIdxToRegister(arg_idx);
-		WriteToBlock(code_block, write_offset, (UCHAR*)&idx_ins, 2);
-		WriteToBlock(code_block, write_offset, (UCHAR*)&qword, 8);
+		WriteVal(idx_ins);
+		WriteVal(qword);
 		arg_idx++;
 	}
 	idx_ins = 0xb848;
 	//mov rax, address
-	WriteMovabsRAX(code_block, write_offset, address);
+	WriteMovabsRAX(address);
 	//call rax
 	idx_ins = 0xd0ff;
-	WriteToBlock(code_block, write_offset, (UCHAR*)&idx_ins, 2);
+	WriteVal(idx_ins);
 	//ret
-	WriteToBlock(code_block, write_offset, 0xc3);
+	WriteByte(0xc3);
 
 }
