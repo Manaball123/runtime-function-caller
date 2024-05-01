@@ -89,21 +89,31 @@ class CodeGenerator {
 		WriteVal(movabs_rax);
 		WriteVal(val);
 	}
-
-	inline short ArgIdxToRegister(int idx) {
-		switch (idx) {
-		case 0:
-			return 0xb948;
-		case 1:
-			return 0xba48;
-		case 2:
-			return 0xb849;
-		case 3:
-			return 0xb949;
-		}
+	inline void WritePushQWord(QWORD val) {
+		WriteMovabsRAX(val);
+		//push rax
+		WriteByte(0x50);
 	}
-
-
+	inline void WritePushRSP() {
+		WriteByte(0x54);
+	}
+	inline void WritePopRSP() {
+		WriteByte(0x5c);
+	}
+	//not too sure if its signed/unsigned actually but probably wont ever be a problem
+	//0:  48 81 ec ff 00 00 00    sub    rsp,0xff 
+	inline void WriteSubRsp(int val) {
+		WriteByte(0x48);
+		WriteByte(0x81);
+		WriteByte(0xec);
+		WriteVal(val);
+	}
+	inline void WriteAddRsp(int val) {
+		WriteByte(0x48);
+		WriteByte(0x81);
+		WriteByte(0xc4);
+		WriteVal(val);
+	}
 public:
 	pCode_t GetCodePtr() {
 		return (pCode_t)code_block;
