@@ -15,7 +15,9 @@ int main() {
 	void* pFunc1 = GetProcAddress(hmod, "Func1");
 	void* pFunc3 = GetProcAddress(hmod, "Func3");
 	std::vector<QWORD> args = { 1,2 };
-	pCode_t code = GenCode((QWORD)pFunc1, args);
-	std::cout << code() << std::endl;
+	std::vector<ArgType> args_type = { QWORD_t, QWORD_t };
+	CodeGenerator generator(pFunc1, args, args_type);
+	auto ptr = generator.GetCodePtr();
+	std::cout << ptr() << std::endl;
 	
 }
