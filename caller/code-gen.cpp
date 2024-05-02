@@ -3,7 +3,7 @@
 
 
 
-void CodeGenerator::GenCode(QWORD address, std::vector<QWORD> args) {
+void CodeGenerator::GenCode(QWORD address, const std::vector<QWORD>& args, const std::vector<ArgType>& arg_types) {
 	//10 bytes per movabs, 1 for rax for  and the rest for args
 	//2 bytes for calling rax, 1 for ret
 
@@ -11,8 +11,7 @@ void CodeGenerator::GenCode(QWORD address, std::vector<QWORD> args) {
 	size_t code_size = 0x1000;
 	int arg_idx = 0;
 
-	code_block = (unsigned char*)AllocRWX(code_size);
-	short idx_ins;
+	code_buf = (UCHAR*)AllocRWX(code_size);
 
 
 	//WRITING PHASE:
@@ -20,26 +19,23 @@ void CodeGenerator::GenCode(QWORD address, std::vector<QWORD> args) {
 	
 
 	//first save args in registers, use movabs
-	for (QWORD qword : args) {
-		if (arg_idx >= 4)
+	for (int i = 0; i < args.size(); i++) {
+		if (i >= 4)
 			break;
-		idx_ins = ArgIdxToRegister(arg_idx);
-		WriteVal(idx_ins);
-		WriteVal(qword);
-		arg_idx++;
+		WriteArgToRegister(i, args[i], arg_types[i]);
+
 	}
+
 	if (args.size() > 4) {
-		for (int i = args.size() - 1; i >= 4; i--) 
-			WritePushQWord(args[i]);
+		for (int i = args.size() - 1; i >= 4; i--)
+			WriteArgToStack(args[i], arg_types[i]);
 	}
 	//shadowspace
 	WriteSubRsp(32);
-	idx_ins = 0xb848;
 	//mov rax, address
 	WriteMovabsRAX(address);
 	//call rax
-	idx_ins = 0xd0ff;
-	WriteVal(idx_ins);
+	WriteCallRAX();
 	//remove shadowspace
 	WriteAddRsp(32);
 	if (args.size() - 4 > 0)

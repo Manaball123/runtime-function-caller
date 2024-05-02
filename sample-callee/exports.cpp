@@ -15,8 +15,8 @@ f:  48 03 44 24 30          add    rax,QWORD PTR [rsp+0x30]
 14: 48 03 44 24 38          add    rax,QWORD PTR [rsp+0x38]
 */
 
-float Func2(float a, float b) {
-	return a + b;
+int64 Func2(int64 a, int b, double c, float d, int64 e, int64 f, int64 g) {
+	return a + b + c + d + e + f + g;
 }
 
 double Func3(double a, double b) {
