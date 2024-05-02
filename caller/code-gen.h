@@ -41,10 +41,14 @@ a:  48 bb ff ff ff ff ff    movabs rbx,0xffffffffffffff
 */
 
 /*
-0:  f2 0f 10 00             movsd  xmm0,QWORD PTR [rax]
-4:  f2 0f 10 08             movsd  xmm1,QWORD PTR [rax]
-8:  f2 0f 10 10             movsd  xmm2,QWORD PTR [rax]
-c:  f2 0f 10 18             movsd  xmm3,QWORD PTR [rax]
+0:  f2 0f 10 04 24          movsd  xmm0,QWORD PTR [rsp]
+5:  f2 0f 10 0c 24          movsd  xmm1,QWORD PTR [rsp]
+a:  f2 0f 10 14 24          movsd  xmm2,QWORD PTR [rsp]
+f:  f2 0f 10 1c 24          movsd  xmm3,QWORD PTR [rsp]
+14: f3 0f 10 04 24          movss  xmm0,DWORD PTR [rsp]
+19: f3 0f 10 0c 24          movss  xmm1,DWORD PTR [rsp]
+1e: f3 0f 10 14 24          movss  xmm2,DWORD PTR [rsp]
+23: f3 0f 10 1c 24          movss  xmm3,DWORD PTR [rsp]
 */
 
 
@@ -61,32 +65,36 @@ enum ArgType {
 };
 
 class CodeGenerator {
-	UCHAR* code_block;
+	UCHAR* code_buf;
 	size_t cur_offset = 0;
-	inline void Init(void* address, std::vector<QWORD> args, std::vector<ArgType> arg_types) {
-		GenCode((QWORD)address, args);
+	inline void Init(void* address, const std::vector<QWORD>& args, const std::vector<ArgType>& arg_types) {
+		GenCode((QWORD)address, args, arg_types);
 	}
-	void GenCode(QWORD address, std::vector<QWORD> args);
+	void GenCode(QWORD address, const std::vector<QWORD>& args, const std::vector<ArgType>& arg_types);
 
 	inline void WriteByte(UCHAR val) {
-		*(code_block + cur_offset) = val;
+		*(code_buf + cur_offset) = val;
 		cur_offset++;
+	}
+	inline void WriteBytes(std::vector<UCHAR> val) {
+		for(UCHAR c : val){
+			*(code_buf + cur_offset) = c;
+			cur_offset++;
+		}
 	}
 	template <typename T>
 	inline void WriteVal(T val) {
-		*reinterpret_cast<T*>(code_block + cur_offset) = val;
+		*reinterpret_cast<T*>(code_buf + cur_offset) = val;
 		cur_offset += sizeof(val);
 	}
-
 	inline void WriteDataBlock(UCHAR* val, size_t length = 1) {
 		for (size_t i = 0; i < length; i++) {
-			*(code_block + cur_offset + i) = *(val + i);
+			*(code_buf + cur_offset + i) = *(val + i);
 		}
 		cur_offset += length;
 	}
 	inline void WriteMovabsRAX(QWORD val) {
-		short movabs_rax = 0xb848;
-		WriteVal(movabs_rax);
+		WriteBytes({ 0x48, 0xb8 });
 		WriteVal(val);
 	}
 	inline void WritePushQWord(QWORD val) {
@@ -94,31 +102,68 @@ class CodeGenerator {
 		//push rax
 		WriteByte(0x50);
 	}
-	inline void WritePushRSP() {
-		WriteByte(0x54);
+	inline void WritePushDWord(DWORD val) {
+		WriteByte(0x68);
+		WriteVal(val);
 	}
-	inline void WritePopRSP() {
-		WriteByte(0x5c);
-	}
+	inline void WritePushRSP(){ WriteByte(0x54); }
+	inline void WritePopRSP() { WriteByte(0x5c); }
 	//not too sure if its signed/unsigned actually but probably wont ever be a problem
 	//0:  48 81 ec ff 00 00 00    sub    rsp,0xff 
 	inline void WriteSubRsp(int val) {
-		WriteByte(0x48);
-		WriteByte(0x81);
-		WriteByte(0xec);
+		WriteBytes({ 0x48, 0x81, 0xec });
 		WriteVal(val);
 	}
 	inline void WriteAddRsp(int val) {
-		WriteByte(0x48);
-		WriteByte(0x81);
-		WriteByte(0xc4);
+		WriteBytes({ 0x48, 0x81, 0xc4 });
 		WriteVal(val);
+	}
+	inline void WriteArgToRegister(int arg_idx, QWORD val, ArgType type) {
+		switch (type) {
+		case QWORD_t:
+			WriteBytes(ArgIdxToQWord(arg_idx));
+			WriteVal(val);
+			return;
+		case DWORD_t:
+			WriteBytes(ArgIdxToDWord(arg_idx));
+			WriteVal((DWORD)val);
+			return;
+		case FLOAT_t:
+			//first push on stack
+			WritePushDWord(val);
+			WriteBytes(ArgIdxToXMM32(arg_idx));
+			//I know its weird but its extended to 64bits, see https://stackoverflow.com/questions/40305965/does-each-push-instruction-push-a-multiple-of-8-bytes-on-x64
+			WriteAddRsp(8);
+			return;
+		case DOUBLE_t:
+			//first push on stack
+			WritePushQWord(val);
+			WriteBytes(ArgIdxToXMM64(arg_idx));
+			WriteAddRsp(8);
+			return;
+		}
+	}
+	//note that order matters here
+	inline void WriteArgToStack(QWORD val, ArgType type) {
+		switch (type) {
+		case QWORD_t:
+			WritePushQWord(val); return;
+		case DWORD_t:
+			WritePushDWord(val); return;
+		case FLOAT_t:
+			WritePushDWord(val); return;
+		case DOUBLE_t:
+			WritePushQWord(val); return;
+		}
+	}
+	inline void WriteCallRAX() {
+		WriteBytes({ 0xff, 0xd0 });
 	}
 public:
 	pCode_t GetCodePtr() {
-		return (pCode_t)code_block;
+		return (pCode_t)code_buf;
 	}
-	CodeGenerator(void* address, std::vector<QWORD> args, std::vector<ArgType> arg_types) {
+	CodeGenerator(void* address, const std::vector<QWORD>& args, const std::vector<ArgType>& arg_types) {
 		Init(address, args, arg_types);
 	}
 };
