@@ -28,6 +28,13 @@ int main() {
 	std::vector<ArgType> args_type = { QWORD_t, DWORD_t, DOUBLE_t, FLOAT_t, QWORD_t, QWORD_t, QWORD_t };
 	CodeGenerator generator(pFunc2, args, args_type);
 
+	const char* arga = "hello";
+	const char* argb = " world";
+	std::vector<QWORD> args2 = { arga, argb };
+	std::vector<ArgType> args_type2 = { QWORD_t, QWORD_t};
+	
+	CodeGenerator gen2(&strcat, args2, args_type2);
+	std::cout << (const char*)gen2.GetCodePtr() << std::endl;
 
 	a = pFunc2(1, 2, 3, 4, 5, 6, 7);
 	auto ptr = generator.GetCodePtr();
